@@ -2,81 +2,82 @@ import pandas as pd
 import os
 import re
 
-# Diretório onde o script está localizado
-diretorio_base = os.path.dirname(os.path.abspath(__file__))
+# Directory where the script is located
+base_directory = os.path.dirname(os.path.abspath(__file__))
 
-# Diretório onde os arquivos CSV estão (pasta 'files')
-diretorio_csv = os.path.join(diretorio_base, "files")
+# Directory where the CSV files are (folder 'files')
+csv_directory = os.path.join(base_directory, "files")
 
-# Diretório onde o arquivo unificado será salvo (pasta 'result')
-diretorio_result = os.path.join(diretorio_base, "result")
+# Directory where the unified file will be saved (folder 'result')
+result_directory = os.path.join(base_directory, "result")
 
-# Cria o diretório de resultado, se não existir
-os.makedirs(diretorio_result, exist_ok=True)
+# Create the result directory if it does not exist
+os.makedirs(result_directory, exist_ok=True)
 
-# Caminho completo para o arquivo unificado
-caminho_unificado = os.path.join(diretorio_result, "unified.csv")
+# Full path to the unified file
+unified_path = os.path.join(result_directory, "unified.csv")
 
-# Remove o arquivo de destino, se ele já existir
-if os.path.exists(caminho_unificado):
-    os.remove(caminho_unificado)
+# Remove the target file if it already exists
+if os.path.exists(unified_path):
+    os.remove(unified_path)
 
-print("Iniciando o processo de unificação dos arquivos CSV...")
+print("Starting the process of unifying CSV files...")
 
+# Function to extract the number from the file name
+def extract_number(file_name):
+    match = re.search(r"(\d+)", file_name)
+    if match:
+        return int(match.group(0))
+    else:
+        return -1 
 
-# Função para extrair o número do nome do arquivo
-def extrair_numero(nome_arquivo):
-    match = re.search(r"(\d+)", nome_arquivo)
-    return int(match.group(0)) if match else -1
-
-
-# Lista de arquivos no diretório, filtrada e ordenada pelo número no nome
-arquivos_csv = sorted(
-    [f for f in os.listdir(diretorio_csv) if f.endswith(".csv")],
-    key=extrair_numero,
+# List of files in the directory, filtered and sorted by the number in the name
+csv_files = sorted(
+    [f for f in os.listdir(csv_directory) if f.endswith(".csv")],
+    key=extract_number,
     reverse=True,
 )
 
-# Contador para acompanhar o progresso
-contador_arquivos = 0
+# Counter to track progress
+file_counter = 0
 
-# Percorre todos os arquivos ordenados
-for arquivo in arquivos_csv:
-    contador_arquivos += 1
-    caminho_arquivo = os.path.join(diretorio_csv, arquivo)
-    print(f"Lendo o arquivo {contador_arquivos}: {arquivo}")
+# Iterate over all sorted files
+for file in csv_files:
+    file_counter += 1
+    file_path = os.path.join(csv_directory, file)
+    print(f"Reading file {file_counter}: {file}")
 
-    # Lê cada arquivo CSV em chunks e escreve no arquivo de destino
+    # Read each CSV file in chunks and write to the target file
     for chunk in pd.read_csv(
-        caminho_arquivo, delimiter=",", chunksize=10000
-    ):  # substitua ',' pelo delimitador correto
-        print(f"Processando chunk do arquivo {arquivo}...")
+        file_path, delimiter=",", chunksize=10000
+    ):  # replace ',' with the correct delimiter
+        print(f"Processing chunk of file {file}...")
 
-        # Remove linhas completamente vazias
+        # Remove completely empty rows
         chunk.dropna(how="all", inplace=True)
 
-        # Corrige problemas de espaços em branco nos cabeçalhos das colunas
+        # Fix whitespace issues in column headers
         chunk.columns = chunk.columns.str.strip()
 
-        # Remove colunas extras que podem ter sido criadas por erros de leitura
+        # Remove extra columns that may have been created by reading errors
         chunk = chunk.loc[:, ~chunk.columns.str.contains("^Unnamed")]
 
-        # Verifica se o número de colunas está correto
-        if contador_arquivos == 1:
+        # Check if the number of columns is correct
+        if file_counter == 1:
             expected_columns = chunk.columns
         else:
             if not chunk.columns.equals(expected_columns):
                 print(
-                    f"Atenção: O arquivo {arquivo} tem colunas inconsistentes. Ignorando esse arquivo."
+                    f"Attention: File {file} has inconsistent columns. Skipping this file."
                 )
                 continue
 
-        # Append para não sobrescrever o arquivo anterior
+        # Append to avoid overwriting the previous file
         chunk.to_csv(
-            caminho_unificado,
+            unified_path,
             mode="a",
-            header=not os.path.exists(caminho_unificado),
+            header=not os.path.exists(unified_path),
             index=False,
         )
 
-print(f"Processamento concluído! Arquivo unificado criado em: {caminho_unificado}")
+print(f"Processing completed! Unified file created at: {unified_path}")
